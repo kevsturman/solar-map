@@ -15,14 +15,27 @@ type DirectionsResult = google.maps.DirectionsResult;
 type MapOptions = google.maps.MapOptions;
 
 const planetDistances = [
-  0, 0.980872976949485, 1.84404119666503, 2.55026974006866, 3.88425698871996,
+  0.980872976949485, 1.84404119666503, 2.55026974006866, 3.88425698871996,
   13.2515939185875, 24.3060323688082, 48.8867091711623, 76.6454144188328, 100,
+];
+
+const planetNames = [
+  "Mercury",
+  "Venus",
+  "Earth",
+  "Mars",
+  "Jupiter",
+  "Saturn",
+  "Uranus",
+  "Neptune",
+  "Pluto",
 ];
 
 export default function Map() {
   const [office, setOffice] = useState<LatLngLiteral>();
   const mapRef = useRef<GoogleMap>();
   const [maxRadius, setMaxRadius] = useState(0);
+  const [angle, setAngle] = useState(0);
 
   const center = useMemo<LatLngLiteral>(
     () => ({ lat: 37.77, lng: -122.42 }),
@@ -40,11 +53,14 @@ export default function Map() {
 
   const getPositionByRadius = useCallback(
     (radius: number, planetIndex: number) => {
-      const lat = center.lat + (radius / planetDistances[planetIndex]) * 0.5;
-      const lng = center.lng + (radius / planetDistances[planetIndex]) * 0.5;
-      return { lat, lng };
+      const newLatLngLiteral = google.maps.geometry.spherical.computeOffset(
+        office!,
+        radius,
+        angle
+      );
+      return newLatLngLiteral;
     },
-    [center]
+    [office, angle]
   );
 
   const onLoad = useCallback((map: any) => (mapRef.current = map), []);
@@ -62,7 +78,17 @@ export default function Map() {
             setMaxRadius(parseInt(e.target.value, 10));
           }}
         />
-        <h1>Search for sun location</h1>
+        <h1>Set Bearing</h1>
+        <input
+          type="range"
+          min="0"
+          max="359"
+          value={angle}
+          onChange={(e) => {
+            setAngle(parseInt(e.target.value, 10));
+          }}
+        />
+        <h1>Search to set Sun location</h1>
         <Places
           setOffice={(position) => {
             setOffice(position);
@@ -81,7 +107,17 @@ export default function Map() {
         >
           {office && (
             <>
-              <Marker position={office} icon="/icons/sun.png" />
+              <Marker
+                position={office}
+                icon={{
+                  url: "/icons/sun.png",
+                  size: new google.maps.Size(36, 36),
+                  origin: new google.maps.Point(0, 0),
+                  anchor: new google.maps.Point(12, 12),
+                  scaledSize: new google.maps.Size(25, 25),
+                }}
+                title="The Sun"
+              />
               {planetDistances.map((distance, index) => (
                 <>
                   <Circle
@@ -89,6 +125,18 @@ export default function Map() {
                     center={office}
                     radius={distance * maxRadius}
                     options={closeOptions}
+                  />
+                  <Marker
+                    key={index * distance}
+                    position={getPositionByRadius(distance * maxRadius, index)}
+                    icon={{
+                      url: `/icons/${planetNames[index].toLocaleLowerCase()}.png`,
+                      size: new google.maps.Size(36, 36),
+                      origin: new google.maps.Point(0, 0),
+                      anchor: new google.maps.Point(12, 12),
+                      scaledSize: new google.maps.Size(25, 25),
+                    }}
+                    title={planetNames[index]}
                   />
                 </>
               ))}
